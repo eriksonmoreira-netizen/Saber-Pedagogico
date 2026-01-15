@@ -13,10 +13,10 @@ export interface Student {
   name: string;
   classId: string;
   grades: number[];
-  attendance: number; // Percentage
+  attendance: number; 
   occurrences: Occurrence[];
-  pdi?: string; // Plano de Desenvolvimento Individual
-  aiAnalysis?: string; // Stores the last Gemini analysis
+  pdi?: string; 
+  aiAnalysis?: string; 
 }
 
 export interface ClassRoom {
@@ -33,7 +33,6 @@ export interface Occurrence {
   severity: 'LEVE' | 'MEDIA' | 'GRAVE';
 }
 
-// Simulating Prisma Model structure
 export const PLANS = {
   DOCENTE: { name: 'Plano Docente', price: 29.90, features: ['Turmas', 'Alunos', 'Notas'] },
   MESTRE: { name: 'Plano Mestre', price: 59.90, features: ['Ocorrências', 'Tutorias', 'PDI'] },

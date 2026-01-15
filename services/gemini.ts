@@ -1,24 +1,22 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+'use server';
 
-// Inicializa o cliente com a chave da API 
-// Fallback para string vazia evita erro no build time, mas deve existir em runtime
-const genAI = new GoogleGenerativeAI(process.env.API_KEY || '');
+import { GoogleGenAI } from "@google/genai";
 
-// Utilizando modelo estável 'gemini-1.5-flash' para respostas rápidas
-const MODEL_NAME = 'gemini-1.5-flash';
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const generateStudentAnalysis = async (studentName: string, grades: number[], attendance: number, occurrences: number) => {
-  try {
-    const model = genAI.getGenerativeModel({ 
-      model: MODEL_NAME,
-      generationConfig: {
-        responseMimeType: "application/json"
-      }
+  if (!process.env.API_KEY) {
+    return JSON.stringify({
+      prediction: "Chave de API não configurada no servidor.",
+      highlights: "Contate o administrador.",
+      bnccAlignment: "N/A",
+      status: "REGULAR"
     });
+  }
 
+  try {
     const prompt = `
       Atue como um Especialista Pedagógico Sênior especializado na BNCC.
-      
       Analise o perfil:
       - Aluno: ${studentName}
       - Notas: ${grades.join(', ')}
@@ -40,14 +38,19 @@ export const generateStudentAnalysis = async (studentName: string, grades: numbe
       }
     `;
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    return response.text();
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+
+    return response.text || "{}";
   } catch (error) {
     console.error("Gemini API Error:", error);
-    // Retorna um fallback seguro em caso de erro na API
     return JSON.stringify({
-      prediction: "Serviço de IA indisponível momentaneamente. Verifique a chave de API.",
+      prediction: "Serviço de IA indisponível momentaneamente.",
       highlights: "Verifique sua conexão.",
       bnccAlignment: "N/A",
       status: "REGULAR"
@@ -56,14 +59,9 @@ export const generateStudentAnalysis = async (studentName: string, grades: numbe
 };
 
 export const generateLessonPlan = async (subject: string, topic: string, gradeLevel: string = "Ensino Fundamental II") => {
-  try {
-    const model = genAI.getGenerativeModel({ 
-      model: MODEL_NAME,
-      generationConfig: {
-        responseMimeType: "application/json"
-      }
-    });
+  if (!process.env.API_KEY) return JSON.stringify({ title: "Erro API Key", objective: "N/A", activities: [] });
 
+  try {
     const prompt = `
       Crie um Plano de Aula estruturado para ${subject}, tópico "${topic}", nível ${gradeLevel}.
       O plano deve seguir a BNCC e usar Metodologias Ativas.
@@ -80,9 +78,15 @@ export const generateLessonPlan = async (subject: string, topic: string, gradeLe
       }
     `;
     
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    return response.text();
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+    
+    return response.text || "{}";
   } catch (error) {
     console.error("Gemini API Error:", error);
     return JSON.stringify({

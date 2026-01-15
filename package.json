@@ -1,11 +1,11 @@
 {
   "name": "saber-pedagogico",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "npx prisma generate && next build",
-    "start": "npx prisma db push && next start",
+    "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
@@ -17,7 +17,9 @@
     "react-dom": "^18.2.0",
     "recharts": "^2.12.2",
     "jspdf": "^2.5.1",
-    "jspdf-autotable": "^3.8.2"
+    "jspdf-autotable": "^3.8.2",
+    "clsx": "^2.1.0",
+    "tailwind-merge": "^2.2.1"
   },
   "devDependencies": {
     "@types/node": "^20.11.24",

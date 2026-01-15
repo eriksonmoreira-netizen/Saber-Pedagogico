@@ -1,5 +1,4 @@
 import { User, ClassRoom, Student, UserRole } from '../types';
-import { authService } from '../services/auth';
 
 interface AppState {
   currentUser: User | null;
@@ -33,26 +32,20 @@ type Listener = (state: AppState) => void;
 class PedagogicalStore {
   private state: AppState;
   private listeners: Listener[] = [];
-  private readonly STORAGE_KEY = 'saber_pedagogico_state';
+  private readonly STORAGE_KEY = 'saber_pedagogico_state_v2';
 
   constructor() {
-    const loadedState = this.loadFromStorage();
-    if (loadedState) {
-      this.state = { ...INITIAL_STATE, ...loadedState };
-      // Ensure users list is merged or preserved if needed, but here we trust storage or fallback to initial
-      // If currentUser exists in storage, we trust it for this simulation
-    } else {
-      this.state = INITIAL_STATE;
+    this.state = INITIAL_STATE;
+    if (typeof window !== 'undefined') {
+      const loadedState = this.loadFromStorage();
+      if (loadedState) {
+        this.state = { ...INITIAL_STATE, ...loadedState };
+      }
+      this.validateSession();
     }
-    
-    // Double check session validity
-    this.validateSession();
   }
 
-  // --- Persistence & Observer Pattern ---
-
   private loadFromStorage(): AppState | null {
-    if (typeof window === 'undefined') return null;
     try {
       const saved = localStorage.getItem(this.STORAGE_KEY);
       return saved ? JSON.parse(saved) : null;
@@ -63,8 +56,6 @@ class PedagogicalStore {
   }
 
   private validateSession() {
-    // If we have a user in state (from localstorage JSON), we consider them logged in for this demo.
-    // In a real app, we would validate the token expiry here.
     if (this.state.currentUser) {
       this.state.isAuthenticated = true;
     } else {
@@ -75,18 +66,15 @@ class PedagogicalStore {
 
   public subscribe(listener: Listener): () => void {
     this.listeners.push(listener);
-    // Return unsubscribe function
     return () => {
       this.listeners = this.listeners.filter(l => l !== listener);
     };
   }
 
   private notify() {
-    // Persist state automatically on every change
     if (typeof window !== 'undefined') {
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.state));
     }
-    // Notify all listeners
     this.listeners.forEach(listener => listener(this.state));
   }
 
@@ -94,17 +82,10 @@ class PedagogicalStore {
     return { ...this.state };
   }
 
-  public isLoggedIn(): boolean {
-    return !!this.state.currentUser;
-  }
-
-  // --- Actions ---
-
   public setUserData(user: User) {
     this.state.currentUser = user;
     this.state.isAuthenticated = true;
     
-    // Update the user in the users list if they exist, or add them
     const existingIndex = this.state.users.findIndex(u => u.id === user.id);
     if (existingIndex >= 0) {
       this.state.users[existingIndex] = user;
@@ -113,16 +94,6 @@ class PedagogicalStore {
     }
     
     this.notify();
-  }
-
-  public login(email: string): User | null {
-    const user = this.state.users.find(u => u.email === email);
-    if (user) {
-      // We use setUserData to ensure consistency
-      this.setUserData(user);
-      return user;
-    }
-    return null;
   }
 
   public register(name: string, email: string, role: UserRole): boolean {
@@ -135,16 +106,16 @@ class PedagogicalStore {
       role
     };
 
-    // setUserData will handle adding to list and setting as current
     this.setUserData(newUser);
     return true;
   }
 
   public logout() {
-    localStorage.removeItem(this.STORAGE_KEY); // Clear persisted state
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(this.STORAGE_KEY);
+    }
     this.state.currentUser = null;
     this.state.isAuthenticated = false;
-    // Reset to initial state but keep users? For now, simple reset.
     this.state = { ...INITIAL_STATE, users: this.state.users }; 
     this.notify();
   }
@@ -178,29 +149,16 @@ class PedagogicalStore {
     this.state.students = this.state.students.filter(s => s.id !== id);
     this.notify();
   }
-
-  public updateGrade(studentId: string, newGrade: number) {
-    const student = this.state.students.find(s => s.id === studentId);
-    if (student) {
-      const updatedStudent = {
-        ...student,
-        grades: [...student.grades, newGrade]
-      };
-      this.updateStudent(updatedStudent);
-    }
-  }
 }
 
 export const store = new PedagogicalStore();
 
-// React Hook for easy store consumption
 import { useState, useEffect } from 'react';
 
 export function useStore() {
   const [state, setState] = useState(store.getState());
 
   useEffect(() => {
-    // Subscribe returns the unsubscribe function
     const unsubscribe = store.subscribe((newState) => {
       setState({ ...newState });
     });
