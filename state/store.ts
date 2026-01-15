@@ -9,7 +9,6 @@ interface AppState {
   isAuthenticated: boolean;
 }
 
-// Initial Mock Data
 const INITIAL_STATE: AppState = {
   currentUser: null,
   isAuthenticated: false,
@@ -31,61 +30,69 @@ const INITIAL_STATE: AppState = {
 
 type Listener = (state: AppState) => void;
 
-class Store {
+class PedagogicalStore {
   private state: AppState;
   private listeners: Listener[] = [];
+  private readonly STORAGE_KEY = 'saber_pedagogico_state';
 
   constructor() {
-    // Attempt to restore session from localStorage token
-    const savedState = localStorage.getItem('saber_pedagogico_state');
+    this.state = this.loadFromStorage() || INITIAL_STATE;
+    this.validateSession();
+  }
+
+  // --- Persistence & Observer Pattern ---
+
+  private loadFromStorage(): AppState | null {
+    if (typeof window === 'undefined') return null;
+    const saved = localStorage.getItem(this.STORAGE_KEY);
+    return saved ? JSON.parse(saved) : null;
+  }
+
+  private validateSession() {
     const savedToken = localStorage.getItem('saber_pedagogico_token');
-    
-    let loadedState = savedState ? JSON.parse(savedState) : INITIAL_STATE;
-
-    // Validate Token if exists
     if (savedToken) {
-       const user = authService.getUserFromToken(savedToken, loadedState.users);
-       if (user) {
-         loadedState.currentUser = user;
-         loadedState.isAuthenticated = true;
-       } else {
-         // Token invalid or expired
-         localStorage.removeItem('saber_pedagogico_token');
-         loadedState.currentUser = null;
-         loadedState.isAuthenticated = false;
-       }
+      const user = authService.getUserFromToken(savedToken, this.state.users);
+      if (user) {
+        this.state.currentUser = user;
+        this.state.isAuthenticated = true;
+      } else {
+        this.logout();
+      }
     }
-
-    this.state = loadedState;
   }
 
-  public getState() {
-    return this.state;
-  }
-
-  public subscribe(listener: Listener) {
+  public subscribe(listener: Listener): () => void {
     this.listeners.push(listener);
+    // Return unsubscribe function
     return () => {
       this.listeners = this.listeners.filter(l => l !== listener);
     };
   }
 
   private notify() {
-    // We persist state (data) separately from token (auth) usually, but here we sync simple data
-    // We exclude currentUser from the state string to rely on token for auth source of truth,
-    // but for this simple app, we just save the bulk state and token separately.
-    localStorage.setItem('saber_pedagogico_state', JSON.stringify(this.state));
+    // Persist state
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.state));
+    // Notify all listeners
     this.listeners.forEach(listener => listener(this.state));
+  }
+
+  public getState() {
+    return { ...this.state };
   }
 
   // --- Actions ---
 
-  public login(email: string) {
+  public setUserData(user: User) {
+    this.state.currentUser = user;
+    this.state.users = this.state.users.map(u => u.id === user.id ? user : u);
+    this.notify();
+  }
+
+  public login(email: string): boolean {
     const user = this.state.users.find(u => u.email === email);
     if (user) {
       const token = authService.createToken(user);
       localStorage.setItem('saber_pedagogico_token', token);
-      
       this.state.currentUser = user;
       this.state.isAuthenticated = true;
       this.notify();
@@ -94,10 +101,8 @@ class Store {
     return false;
   }
 
-  public register(name: string, email: string, role: UserRole) {
-    if (this.state.users.some(u => u.email === email)) {
-      return false; // Email already exists
-    }
+  public register(name: string, email: string, role: UserRole): boolean {
+    if (this.state.users.some(u => u.email === email)) return false;
 
     const newUser: User = {
       id: Math.random().toString(36).substr(2, 9),
@@ -107,15 +112,7 @@ class Store {
     };
 
     this.state.users = [...this.state.users, newUser];
-    
-    // Auto login
-    const token = authService.createToken(newUser);
-    localStorage.setItem('saber_pedagogico_token', token);
-    
-    this.state.currentUser = newUser;
-    this.state.isAuthenticated = true;
-    this.notify();
-    
+    this.login(email); 
     return true;
   }
 
@@ -126,8 +123,8 @@ class Store {
     this.notify();
   }
 
-  public addClass(newClass: ClassRoom) {
-    this.state.classes = [...this.state.classes, newClass];
+  public addClass(classData: ClassRoom) {
+    this.state.classes = [...this.state.classes, classData];
     this.notify();
   }
 
@@ -141,13 +138,13 @@ class Store {
     this.notify();
   }
 
-  public updateStudent(updatedStudent: Student) {
-    this.state.students = this.state.students.map(s => s.id === updatedStudent.id ? updatedStudent : s);
+  public addStudent(student: Student) {
+    this.state.students = [...this.state.students, student];
     this.notify();
   }
 
-  public addStudent(student: Student) {
-    this.state.students = [...this.state.students, student];
+  public updateStudent(updatedStudent: Student) {
+    this.state.students = this.state.students.map(s => s.id === updatedStudent.id ? updatedStudent : s);
     this.notify();
   }
   
@@ -155,18 +152,37 @@ class Store {
     this.state.students = this.state.students.filter(s => s.id !== id);
     this.notify();
   }
+
+  /**
+   * Updates a specific student's grade list
+   * @param studentId The ID of the student
+   * @param newGrade The new grade to add
+   */
+  public updateGrade(studentId: string, newGrade: number) {
+    const student = this.state.students.find(s => s.id === studentId);
+    if (student) {
+      const updatedStudent = {
+        ...student,
+        grades: [...student.grades, newGrade]
+      };
+      this.updateStudent(updatedStudent);
+    }
+  }
 }
 
-export const store = new Store();
+export const store = new PedagogicalStore();
 
-// React Hook for using store
+// React Hook for easy store consumption
 import { useState, useEffect } from 'react';
 
 export function useStore() {
   const [state, setState] = useState(store.getState());
 
   useEffect(() => {
-    return store.subscribe(newState => setState({ ...newState }));
+    // Subscribe returns the unsubscribe function, which useEffect will call on unmount
+    return store.subscribe((newState) => {
+      setState({ ...newState });
+    });
   }, []);
 
   return state;
