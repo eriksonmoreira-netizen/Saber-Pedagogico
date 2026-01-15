@@ -1,56 +1,55 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Inicializa o cliente com a chave da API (Fallback para string vazia para evitar crash no build se a env não estiver setada, mas falhará em runtime)
+// Inicializa o cliente com a chave da API 
+// Fallback para string vazia evita erro no build time, mas deve existir em runtime
 const genAI = new GoogleGenerativeAI(process.env.API_KEY || '');
 
-// Utilizando modelo estável compatível com o SDK @google/generative-ai
+// Utilizando modelo estável 'gemini-1.5-flash' para respostas rápidas
 const MODEL_NAME = 'gemini-1.5-flash';
 
 export const generateStudentAnalysis = async (studentName: string, grades: number[], attendance: number, occurrences: number) => {
   try {
-    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-
-    const prompt = `
-      Atue como um Especialista Pedagógico Sênior especializado na BNCC (Base Nacional Comum Curricular).
-      
-      Analise o seguinte perfil de aluno:
-      - Nome: ${studentName}
-      - Histórico de Notas: ${grades.join(', ')} (Média: ${(grades.reduce((a,b)=>a+b,0)/(grades.length || 1)).toFixed(1)})
-      - Frequência: ${attendance}%
-      - Ocorrências Disciplinares: ${occurrences}
-
-      Tarefa: Gere uma análise estratégica estruturada em JSON.
-      
-      Requisitos da Análise:
-      1. **prediction**: Uma previsão fundamentada sobre o desempenho futuro se o padrão atual continuar.
-      2. **highlights**: Identifique pontos fortes (Destaques) e pontos que exigem 'Superação' imediata.
-      3. **bnccAlignment**: Cite especificamente UMA competência geral ou habilidade da BNCC que deve ser trabalhada para melhorar o quadro deste aluno.
-      4. **status**: Classifique estritamente como "ATENÇÃO", "REGULAR" ou "EXCELENTE".
-
-      Formato de Saída (JSON Puro):
-      {
-        "prediction": "string",
-        "highlights": "string",
-        "bnccAlignment": "string",
-        "status": "ATENÇÃO" | "REGULAR" | "EXCELENTE"
-      }
-    `;
-
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    const model = genAI.getGenerativeModel({ 
+      model: MODEL_NAME,
       generationConfig: {
         responseMimeType: "application/json"
       }
     });
 
-    const response = result.response;
+    const prompt = `
+      Atue como um Especialista Pedagógico Sênior especializado na BNCC.
+      
+      Analise o perfil:
+      - Aluno: ${studentName}
+      - Notas: ${grades.join(', ')}
+      - Frequência: ${attendance}%
+      - Ocorrências: ${occurrences}
+
+      Gere um JSON com:
+      1. prediction (previsão de desempenho)
+      2. highlights (pontos fortes e de atenção)
+      3. bnccAlignment (competência da BNCC sugerida)
+      4. status (ATENÇÃO, REGULAR, ou EXCELENTE)
+
+      Estrutura do JSON:
+      {
+        "prediction": "string",
+        "highlights": "string",
+        "bnccAlignment": "string",
+        "status": "string"
+      }
+    `;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
     return response.text();
   } catch (error) {
     console.error("Gemini API Error:", error);
+    // Retorna um fallback seguro em caso de erro na API
     return JSON.stringify({
-      prediction: "Não foi possível gerar a análise preditiva no momento. Verifique a chave de API.",
-      highlights: "Verifique a conexão de rede.",
-      bnccAlignment: "Dados indisponíveis.",
+      prediction: "Serviço de IA indisponível momentaneamente. Verifique a chave de API.",
+      highlights: "Verifique sua conexão.",
+      bnccAlignment: "N/A",
       status: "REGULAR"
     });
   }
@@ -58,43 +57,37 @@ export const generateStudentAnalysis = async (studentName: string, grades: numbe
 
 export const generateLessonPlan = async (subject: string, topic: string, gradeLevel: string = "Ensino Fundamental II") => {
   try {
-    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-
-    const prompt = `
-      Crie um Plano de Aula estruturado para a disciplina de ${subject}, tópico "${topic}", voltado para ${gradeLevel}.
-      
-      O plano deve ser alinhado à BNCC e utilizar Metodologias Ativas.
-      
-      Retorne APENAS um JSON com a seguinte estrutura:
-      {
-        "title": "Título Criativo da Aula",
-        "duration": "Duração estimada",
-        "bnccCode": "Código da Habilidade BNCC (ex: EF09MA01)",
-        "objective": "Objetivo de aprendizagem claro e conciso",
-        "methodology": "Descrição da metodologia ativa utilizada (ex: Sala de Aula Invertida, Gamificação)",
-        "activities": [
-           { "time": "10min", "description": "Atividade inicial" },
-           { "time": "30min", "description": "Desenvolvimento" },
-           { "time": "10min", "description": "Fechamento" }
-        ],
-        "assessment": "Como os alunos serão avaliados nesta aula"
-      }
-    `;
-    
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    const model = genAI.getGenerativeModel({ 
+      model: MODEL_NAME,
       generationConfig: {
         responseMimeType: "application/json"
       }
     });
 
-    const response = result.response;
+    const prompt = `
+      Crie um Plano de Aula estruturado para ${subject}, tópico "${topic}", nível ${gradeLevel}.
+      O plano deve seguir a BNCC e usar Metodologias Ativas.
+      
+      Retorne APENAS um JSON:
+      {
+        "title": "string",
+        "duration": "string",
+        "bnccCode": "string",
+        "objective": "string",
+        "methodology": "string",
+        "activities": [ { "time": "string", "description": "string" } ],
+        "assessment": "string"
+      }
+    `;
+    
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
     return response.text();
   } catch (error) {
-    console.error(error);
+    console.error("Gemini API Error:", error);
     return JSON.stringify({
-      title: "Erro na geração do plano",
-      objective: "Tente novamente mais tarde.",
+      title: "Erro na geração",
+      objective: "Não foi possível conectar à IA.",
       activities: []
     });
   }
