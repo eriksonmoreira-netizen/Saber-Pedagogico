@@ -38,6 +38,7 @@ export const generateStudentAnalysis = async (studentName: string, grades: numbe
       }
     `;
 
+    // Using gemini-3-flash-preview as per prompt requirements for basic text tasks
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
