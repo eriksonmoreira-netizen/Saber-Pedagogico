@@ -1,4 +1,4 @@
-import { User, ClassRoom, Student } from '../types';
+import { User, ClassRoom, Student, UserRole } from '../types';
 import { authService } from '../services/auth';
 
 interface AppState {
@@ -92,6 +92,31 @@ class Store {
       return true;
     }
     return false;
+  }
+
+  public register(name: string, email: string, role: UserRole) {
+    if (this.state.users.some(u => u.email === email)) {
+      return false; // Email already exists
+    }
+
+    const newUser: User = {
+      id: Math.random().toString(36).substr(2, 9),
+      name,
+      email,
+      role
+    };
+
+    this.state.users = [...this.state.users, newUser];
+    
+    // Auto login
+    const token = authService.createToken(newUser);
+    localStorage.setItem('saber_pedagogico_token', token);
+    
+    this.state.currentUser = newUser;
+    this.state.isAuthenticated = true;
+    this.notify();
+    
+    return true;
   }
 
   public logout() {
