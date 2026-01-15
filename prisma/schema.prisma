@@ -1,0 +1,68 @@
+// Configuração do Cliente Prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Configuração da Conexão com o PostgreSQL
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Modelo de Usuário (Professor/Admin)
+model User {
+  id            String       @id @default(uuid())
+  name          String
+  email         String       @unique
+  password      String
+  role          String       @default("DOCENTE") // SEMENTE, DOCENTE, MESTRE, SUPER_ADM
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  classes       Class[]
+
+  @@map("users")
+}
+
+// Modelo de Turmas
+model Class {
+  id          String       @id @default(uuid())
+  name        String
+  grade       String       // Ex: 5º Ano, 1ª Série
+  subject     String       // Disciplina
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  students    Student[]
+  occurrences Occurrence[]
+  createdAt   DateTime     @default(now())
+
+  @@map("classes")
+}
+
+// Modelo de Alunos
+model Student {
+  id          String       @id @default(uuid())
+  name        String
+  registration String      @unique // Matrícula
+  classId     String
+  class       Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  occurrences Occurrence[]
+  createdAt   DateTime     @default(now())
+
+  @@map("students")
+}
+
+// Modelo de Ocorrências (Diário/IA)
+model Occurrence {
+  id          String   @id @default(uuid())
+  type        String   // Pedagogia, Disciplina, Frequência
+  description String   @db.Text
+  date        DateTime @default(now())
+  
+  classId     String
+  class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("occurrences")
+}
