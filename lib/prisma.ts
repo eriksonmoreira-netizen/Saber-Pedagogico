@@ -1,17 +1,38 @@
-/**
- * NOTE: In a real Next.js Server Environment, this file would initialize Prisma.
- * Since we are running in a Browser/React Sandbox, we will use the 'state/store.ts'
- * to mimic the database behavior using LocalStorage and the Observer Pattern.
- * 
- * Real Implementation:
- * 
- * import { PrismaClient } from '@prisma/client'
- * 
- * const globalForPrisma = global as unknown as { prisma: PrismaClient }
- * 
- * export const prisma = globalForPrisma.prisma || new PrismaClient()
- * 
- * if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
- */
+// import { PrismaClient } from '@prisma/client';
 
-export const prisma = null; // Placeholder
+/**
+ * Mocking PrismaClient because the client library is not generated in this environment.
+ * Run `npx prisma generate` to generate the client and uncomment the import above.
+ */
+class PrismaClient {
+  constructor(options?: any) {}
+  $connect() { return Promise.resolve(); }
+  $disconnect() { return Promise.resolve(); }
+  [key: string]: any;
+}
+
+// Padrão Singleton para evitar múltiplas instâncias do Prisma Client no Hot Reload do Next.js
+// Isso previne o erro "Too many connections" no banco de dados em desenvolvimento e produção.
+
+const prismaClientSingleton = () => {
+  return new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  });
+};
+
+type PrismaClientSingleton = ReturnType<typeof prismaClientSingleton>;
+
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClientSingleton | undefined;
+};
+
+export const prisma = globalForPrisma.prisma ?? prismaClientSingleton();
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+
+/**
+ * DICA DEVOPS:
+ * Na Railway, certifique-se de que sua DATABASE_URL nas variáveis de ambiente inclua:
+ * ?sslmode=no-verify  (ou require, dependendo da configuração do Postgres)
+ * e ?connection_limit=5 (para pool connections em serverless)
+ */
