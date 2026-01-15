@@ -9,7 +9,7 @@ interface AppState {
 }
 
 const INITIAL_STATE: AppState = {
-  currentUser: null,
+  currentUser: null, // Garante estado inicial nulo para SSR
   isAuthenticated: false,
   users: [
     { id: '1', name: 'Erikson Moreira', email: 'erikson.moreira@gmail.com', role: 'SUPER_ADM' },
@@ -36,22 +36,22 @@ class PedagogicalStore {
 
   constructor() {
     this.state = INITIAL_STATE;
-    if (typeof window !== 'undefined') {
-      const loadedState = this.loadFromStorage();
-      if (loadedState) {
-        this.state = { ...INITIAL_STATE, ...loadedState };
-      }
-      this.validateSession();
-    }
+    // Não carrega automaticamente no construtor para evitar conflito de SSR
+    // A hidratação do estado ocorrerá via useEffect no hook useStore ou chamada explícita
   }
 
-  private loadFromStorage(): AppState | null {
+  public loadFromStorage(): void {
+    if (typeof window === 'undefined') return;
+
     try {
       const saved = localStorage.getItem(this.STORAGE_KEY);
-      return saved ? JSON.parse(saved) : null;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        this.state = { ...this.state, ...parsed };
+        this.notify();
+      }
     } catch (e) {
       console.error("Error loading state", e);
-      return null;
     }
   }
 
@@ -66,6 +66,8 @@ class PedagogicalStore {
 
   public subscribe(listener: Listener): () => void {
     this.listeners.push(listener);
+    // Emite o estado atual imediatamente ao inscrever
+    listener(this.state);
     return () => {
       this.listeners = this.listeners.filter(l => l !== listener);
     };
@@ -73,7 +75,11 @@ class PedagogicalStore {
 
   private notify() {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.state));
+      try {
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.state));
+      } catch (e) {
+        console.error("Erro ao salvar no localStorage", e);
+      }
     }
     this.listeners.forEach(listener => listener(this.state));
   }
@@ -159,6 +165,9 @@ export function useStore() {
   const [state, setState] = useState(store.getState());
 
   useEffect(() => {
+    // Carrega do storage apenas no cliente após a montagem
+    store.loadFromStorage();
+    
     const unsubscribe = store.subscribe((newState) => {
       setState({ ...newState });
     });

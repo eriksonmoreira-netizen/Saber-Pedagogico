@@ -1,11 +1,10 @@
-import './globals.css';
-import type { Metadata } from 'next';
-import { AuthWrapper } from '../components/AuthWrapper';
+'use client';
 
-export const metadata: Metadata = {
-  title: 'Saber Pedagógico',
-  description: 'Portal de gestão escolar com IA integrada à BNCC',
-};
+import './globals.css';
+import React from 'react';
+
+// Metadados removidos pois 'export const metadata' não é suportado em 'use client'.
+// A configuração deve ser feita via layout estático ou head manual se necessário.
 
 export default function RootLayout({
   children,
@@ -13,11 +12,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR">
-      <body>
-        <AuthWrapper>
-          {children}
-        </AuthWrapper>
+    <html lang="pt-BR" suppressHydrationWarning={true}>
+      <head>
+        <title>Saber Pedagógico</title>
+        <meta name="description" content="Portal de gestão escolar com IA integrada à BNCC" />
+      </head>
+      <body suppressHydrationWarning={true} className="bg-slate-50 text-slate-900">
+        {children}
       </body>
     </html>
   );
