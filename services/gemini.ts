@@ -1,15 +1,21 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Inicializa o cliente com a chave da API (Fallback para string vazia para evitar crash no build se a env não estiver setada, mas falhará em runtime)
+const genAI = new GoogleGenerativeAI(process.env.API_KEY || '');
+
+// Utilizando modelo estável compatível com o SDK @google/generative-ai
+const MODEL_NAME = 'gemini-1.5-flash';
 
 export const generateStudentAnalysis = async (studentName: string, grades: number[], attendance: number, occurrences: number) => {
   try {
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+
     const prompt = `
       Atue como um Especialista Pedagógico Sênior especializado na BNCC (Base Nacional Comum Curricular).
       
       Analise o seguinte perfil de aluno:
       - Nome: ${studentName}
-      - Histórico de Notas: ${grades.join(', ')} (Média: ${(grades.reduce((a,b)=>a+b,0)/grades.length).toFixed(1)})
+      - Histórico de Notas: ${grades.join(', ')} (Média: ${(grades.reduce((a,b)=>a+b,0)/(grades.length || 1)).toFixed(1)})
       - Frequência: ${attendance}%
       - Ocorrências Disciplinares: ${occurrences}
 
@@ -30,19 +36,19 @@ export const generateStudentAnalysis = async (studentName: string, grades: numbe
       }
     `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json'
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json"
       }
     });
 
-    return response.text;
+    const response = result.response;
+    return response.text();
   } catch (error) {
     console.error("Gemini API Error:", error);
     return JSON.stringify({
-      prediction: "Não foi possível gerar a análise preditiva no momento.",
+      prediction: "Não foi possível gerar a análise preditiva no momento. Verifique a chave de API.",
       highlights: "Verifique a conexão de rede.",
       bnccAlignment: "Dados indisponíveis.",
       status: "REGULAR"
@@ -52,7 +58,9 @@ export const generateStudentAnalysis = async (studentName: string, grades: numbe
 
 export const generateLessonPlan = async (subject: string, topic: string, gradeLevel: string = "Ensino Fundamental II") => {
   try {
-     const prompt = `
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+
+    const prompt = `
       Crie um Plano de Aula estruturado para a disciplina de ${subject}, tópico "${topic}", voltado para ${gradeLevel}.
       
       O plano deve ser alinhado à BNCC e utilizar Metodologias Ativas.
@@ -73,15 +81,15 @@ export const generateLessonPlan = async (subject: string, topic: string, gradeLe
       }
     `;
     
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json'
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json"
       }
     });
-    
-    return response.text;
+
+    const response = result.response;
+    return response.text();
   } catch (error) {
     console.error(error);
     return JSON.stringify({
