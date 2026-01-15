@@ -2,21 +2,21 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  // Railway e containers Linux precisam disso para otimizar o tamanho da imagem
   output: 'standalone',
   
-  // Ignora erros de TS e Lint no build para não bloquear o deploy em produção
-  // Recomendado apenas se você já roda verificações em CI/CD separado ou localmente
   typescript: {
+    // !! ATENÇÃO !!
+    // Ignorando erros de build para deploy rápido na Railway.
+    // Em um cenário ideal, você deve corrigir os erros de tipagem.
     ignoreBuildErrors: true,
   },
   eslint: {
+    // Ignorando lint no build para produção
     ignoreDuringBuilds: true,
   },
   
-  // Garante que imagens de domínios externos (se houver) funcionem
   images: {
-    domains: ['lh3.googleusercontent.com'], // Exemplo para avatares do Google
+    domains: ['lh3.googleusercontent.com'],
   },
 };
 
