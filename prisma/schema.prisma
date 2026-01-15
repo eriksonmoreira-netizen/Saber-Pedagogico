@@ -1,0 +1,70 @@
+// 1. Configuração do Gerador (Cria o cliente para o seu código)
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 2. Configuração da Fonte de Dados (Conecta ao PostgreSQL)
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 3. MODELOS DE DADOS DO PORTAL
+
+// Usuário: Gerencia Professores e Administradores
+model User {
+  id            String       @id @default(uuid())
+  name          String
+  email         String       @unique
+  password      String
+  role          String       @default("DOCENTE") // SEMENTE, DOCENTE, MESTRE, SUPER_ADM
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  classes       Class[]
+
+  @@map("users")
+}
+
+// Turmas: Organiza os alunos por grupos
+model Class {
+  id          String       @id @default(uuid())
+  name        String
+  grade       String       // Ex: 5º Ano, 1ª Série
+  subject     String       // Disciplina
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  students    Student[]
+  occurrences Occurrence[]
+  createdAt   DateTime     @default(now())
+
+  @@map("classes")
+}
+
+// Alunos: Cadastro individual de estudantes
+model Student {
+  id          String       @id @default(uuid())
+  name        String
+  registration String      @unique // Matrícula
+  classId     String
+  class       Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  occurrences Occurrence[]
+  createdAt   DateTime     @default(now())
+
+  @@map("students")
+}
+
+// Ocorrências: Onde a IA Gemini atuará gerando relatórios
+model Occurrence {
+  id          String   @id @default(uuid())
+  type        String   // Pedagogia, Disciplina, Frequência
+  description String   @db.Text // @db.Text permite textos longos da IA
+  date        DateTime @default(now())
+  
+  classId     String
+  class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("occurrences")
+}
